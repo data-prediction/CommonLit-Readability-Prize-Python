@@ -7,7 +7,7 @@ import sys
 # ----------------------------------------- Configuration and Output files ------------------------------------------- #
 
 project_dir = os.path.dirname(sys.argv[0])
-out_dir = os.path.join(project_dir, 'out')
+out_dir = os.path.join(project_dir, '../out')
 
 with open(os.path.join(out_dir, 'train.csv')) as train_csv_fp:
     train_csv = pd.read_csv(train_csv_fp)

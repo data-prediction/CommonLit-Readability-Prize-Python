@@ -12,7 +12,7 @@ from ibm_watson.natural_language_understanding_v1 import Features, ConceptsOptio
 
 project_dir = os.path.dirname(sys.argv[0])
 input_dir = os.path.join(os.path.dirname(project_dir), 'input')
-out_dir = os.path.join(project_dir, 'out')
+out_dir = os.path.join(project_dir, '../out')
 commonlitreadabilityprize_input_dir = os.path.join(input_dir, 'commonlitreadabilityprize')
 
 with open(os.path.join(project_dir, 'config', 'ibm_credentials.json')) as ibm_credentials_fp:
