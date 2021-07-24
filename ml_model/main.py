@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 
 import os
+import re
+import string
 
-import pandas as pd
-
-import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
-
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import BernoulliNB
+from wordcloud import WordCloud, STOPWORDS
+from nltk.tokenize import word_tokenize
 
 project_dir = os.path.dirname(os.path.realpath(__file__))
 input_dir = os.path.join(os.path.dirname(project_dir), 'input')
 commonlitreadabilityprize_input_dir = os.path.join(input_dir, 'commonlitreadabilityprize')
+custom_input_dir = os.path.join(input_dir, 'custom')
 
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as train_csv_fp:
     train_csv_df = pd.read_csv(train_csv_fp)
@@ -23,9 +25,46 @@ with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as tra
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as test_csv_fp:
     test_csv_df = pd.read_csv(test_csv_fp)
 
+with open(os.path.join(custom_input_dir, 'google_1gram_cnt.csv')) as stop_words_csv:
+    stop_words_csv_df = pd.read_csv(stop_words_csv)
+
+
 # Show target statistics
 sns.histplot(train_csv_df, x='target')
 plt.show()
+
+
+# Text processing
+
+stopwords = set(STOPWORDS)
+stopwords.update(stop_words_csv_df.word)
+
+# Show Word Cloud
+
+wordcloud = WordCloud(stopwords=stopwords).generate('.\n'.join(train_csv_df.excerpt))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+
+exit(0)
+
+
+def normalize_text(text: str):
+    print(text)
+    text2 = word_tokenize(text)
+    print(text2)
+    return 'text'
+
+
+train_csv_df['excerpt'] = train_csv_df['excerpt'].transform(
+    lambda excerpt: normalize_text(excerpt), axis=0
+)
+
+exit(0)
+
+excerpt_texts = ".\n".join(excerpt for excerpt in train_csv_df.excerpt)
+excerpt_texts = re.sub(r'\d+', '', excerpt_texts)
+excerpt_texts = excerpt_texts.translate(string.maketrans('', ''), string.punctuation)
 
 
 
