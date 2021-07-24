@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from wordcloud import WordCloud, STOPWORDS
@@ -50,7 +50,7 @@ plt.axis("off")
 plt.show()
 
 # Vectorize text by occurrences
-count_vector = CountVectorizer()
+count_vector = CountVectorizer(ngram_range=(1, 2))
 X_train_counts = count_vector.fit_transform(train_csv_df.excerpt)
 print(X_train_counts.shape)
 print(count_vector.vocabulary_.get(u'algorithm'))
@@ -72,87 +72,27 @@ print(X_train_bigram.shape)
 # ------------------------------- Regression --------------------------------- #
 
 y = train_csv_df.target
-X_train, X_test, y_train, y_test = train_test_split(X_train_bigram, y, random_state=0)
-
-model = LinearRegression()
-model.fit(X_train, y_train)         # Train model from data
-
-p_train = model.predict(X_train)    # Predict X_train after training
-p_test = model.predict(X_test)      # Predict X_test after training
-
-mae_train = round(mean_absolute_error(y_train, p_train), 5)
-mae_test = round(mean_absolute_error(y_test, p_test), 5)
-print('MAE train', mae_train)
-print('MAE test', mae_test)
-
-# We need to know the model mean squared error
-mse_train = round(mean_squared_error(y_train, p_train), 5)
-mse_test = round(mean_squared_error(y_test, p_test), 5)
-print('MSE train', mse_train)
-print('MSE test', mse_test)
-
-exit(0)
 
 
-def normalize_text(text: str):
-    print(text)
-    text2 = word_tokenize(text)
-    print(text2)
-    return 'text'
+def learn(trained_results):
+    X_train, X_test, y_train, y_test = train_test_split(trained_results, y, random_state=0)
+
+    model = LinearRegression()
+    model.fit(X_train, y_train)         # Train model from data
+
+    p_train = model.predict(X_train)    # Predict X_train after training
+    p_test = model.predict(X_test)      # Predict X_test after training
+
+    # We need to know the model mean squared error
+    mse_train = round(mean_squared_error(y_train, p_train), 5)
+    mse_test = round(mean_squared_error(y_test, p_test), 5)
+    print(f'Model: {type(trained_results)}')
+    print('MSE train', mse_train)
+    print('MSE test', mse_test)
 
 
-train_csv_df['excerpt'] = train_csv_df['excerpt'].transform(
-    lambda excerpt: normalize_text(excerpt), axis=0
-)
-
-exit(0)
-
-excerpt_texts = ".\n".join(excerpt for excerpt in train_csv_df.excerpt)
-excerpt_texts = re.sub(r'\d+', '', excerpt_texts)
-excerpt_texts = excerpt_texts.translate(string.maketrans('', ''), string.punctuation)
-
-
-
-exit(0)
-
-
-
-
-
-y = train_csv_df['target']
-X = train_csv_df['excerpt']
-
-countVectorizer = CountVectorizer(analyzer='word', ngram_range=(1, 2))
-countVectorizer.fit(X)
-X = countVectorizer.transform(X)
-
-print(countVectorizer.get_feature_names())
-print(X.todense())
-print(X)
-exit()
-# X2 = countVectorizer.fit_transform(X)
-# print(countVectorizer.get_feature_names())
-
-X_train, X_test, y_train, y_test = train_test_split(X2, y, random_state=0)
-model = BernoulliNB()
-model.fit(X_train, y_train)
-
-exit(0)
-# X = train_csv_df[['excerpt', 'standard_error']]
-
-print(train_csv_df.head())
-
-y = train_csv_df['target']
-
-model = BernoulliNB()
-model.fit(X_train, y_train)
-
-p_train = model.predict(X_train)
-p_test = model.predict(X_test)
-
-acc_train = mean_squared_error(y_train, p_train)
-acc_test = mean_squared_error(y_test, p_test)
-
-print(f'Train acc. {acc_train}; Test acc. {acc_test}')
+learn(X_train_counts)
+learn(X_train_tf)
+learn(X_train_bigram)
 
 exit(0)
