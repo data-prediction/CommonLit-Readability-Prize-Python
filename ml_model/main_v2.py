@@ -29,7 +29,7 @@ with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as tes
 
 # Vectorize text by occurrences
 bigram_vectorizer = CountVectorizer(
-    # ngram_range=(1, 2),
+    ngram_range=(1, 2),
     min_df=1
 )
 X_train_bigram = bigram_vectorizer.fit_transform(train_csv_df.excerpt)
@@ -39,18 +39,27 @@ X_train_bigram_df = pd.DataFrame.sparse.from_spmatrix(
     X_train_bigram,
     columns=bigram_vectorizer.get_feature_names()
 )
+
+# Transform vectors
 transformers = [
     ['scaler', RobustScaler(), bigram_vectorizer.get_feature_names()],
 ]
 ct = ColumnTransformer(transformers, remainder='passthrough')
-X_train_transformed = ct.fit_transform(X_train_bigram_df)
+# X_train_transformed = ct.fit_transform(X_train_bigram_df)
+
+training_results = {
+    'X_train_bigram': {
+        'features_count': bigram_vectorizer.get_feature_names(),
+        'result': X_train_bigram_df
+    }
+}
 
 # ------------------------------- Regression --------------------------------- #
 
 y = train_csv_df.target
 
 
-def learn(trained_results, name):
+def learn(trained_results):
     X_train, X_test, y_train, y_test = train_test_split(trained_results, y, random_state=0)
 
     model = LinearRegression()
@@ -62,12 +71,15 @@ def learn(trained_results, name):
     # We need to know the model mean squared error
     mse_train = round(mean_squared_error(y_train, p_train), 5)
     mse_test = round(mean_squared_error(y_test, p_test), 5)
-    print(f'#---- {name} ----#')
     print('MSE train', mse_train)
     print('MSE test', mse_test)
 
 
-learn(X_train_bigram, 'X_train_bigram')
-learn(X_train_transformed, 'X_train_transformed')
+for name in training_results.keys():
+    r = training_results.get(name)
+    print(f'#---- {name} ----#')
+    print('Variables:', len(r.get('features_count')))
+    learn(X_train_bigram_df)
+
 
 exit(0)
