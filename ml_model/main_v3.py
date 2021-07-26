@@ -8,10 +8,12 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.linear_model._base import LinearModel
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from sklearn.neural_network._multilayer_perceptron import BaseMultilayerPerceptron
 from sklearn.preprocessing import RobustScaler
 from sklearn.neural_network import MLPRegressor
 from sklearn.compose import ColumnTransformer
@@ -40,6 +42,7 @@ if os.path.isfile(os.path.join(output_dir, 'train.csv')):
         trained_csv_df: DataFrame or None = pd.read_csv(trained_csv_fp)
 else:
     trained_csv_df = None
+
 
 # ---------------------------- Data Preparation 1 ---------------------------- #
 
@@ -140,37 +143,38 @@ X = DataFrame(
 )
 
 
-# --------------------------------- Modelling -------------------------------- #
+# -------------------------------- Modelling 1 ------------------------------- #
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0, test_size=.15)
+def evaluate_model(model: LinearModel or BaseMultilayerPerceptron):
+    global X
+    global y
 
-model = LinearRegression()
-model.fit(X_train, y_train)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0, test_size=.15)
 
-p_train = model.predict(X_train)
-p_test = model.predict(X_test)
+    model.fit(X_train, y_train)
 
-mae_train = mean_squared_error(y_train, p_train)
-mae_test = mean_squared_error(y_test, p_test)
+    p_train = model.predict(X_train)
+    p_test = model.predict(X_test)
 
-print(f'Median target {np.median(y)}')
-print(f'Train {mae_train}, test {mae_test}')
+    mse_train = mean_squared_error(y_train, p_train)
+    mse_test = mean_squared_error(y_test, p_test)
+
+    print(f'Median target {np.median(y)}')
+    print(f'Train {mse_train}, test {mse_test}')
+
+    sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
+    sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
+    sns.lineplot(x=X['words_freq_count_ratio'].values, y=y)
+    plt.show()
+
+
+evaluate_model(LinearRegression())
+evaluate_model(
+    MLPRegressor(hidden_layer_sizes=[2, 4, 2], max_iter=10000, tol=-1, verbose=False)
+)
 
 
 # ---------------------------- Data Preparation 2 ---------------------------- #
-
-sns.relplot(
-    data=train_csv_df,
-    x='words_freq_count_ratio',
-    y='target',
-    hue='words_count',
-    col='words_freq_count_ratio',
-    kind='line'
-)
-sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
-sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
-sns.lineplot(x=X['words_freq_count_ratio'].values, y=y)
-plt.show()
 
 
 # -------------------------------- Evaluation -------------------------------- #
