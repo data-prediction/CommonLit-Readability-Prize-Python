@@ -10,12 +10,10 @@ import matplotlib.pyplot as plt
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
 from sklearn import linear_model
-from sklearn import ensemble
+# from sklearn import ensemble
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
-# noinspection PyProtectedMember
-from sklearn.neural_network._multilayer_perceptron import BaseMultilayerPerceptron
 # noinspection PyProtectedMember
 from sklearn.linear_model._base import LinearModel
 from sklearn.preprocessing import RobustScaler
@@ -25,39 +23,10 @@ from sklearn.compose import ColumnTransformer
 # ------------------------ Useful methods and classes ------------------------ #
 
 class TrainData:
-    def __init__(self, x, y):
+    def __init__(self, x, y, df: DataFrame):
+        self.df = df
         self.X = x
         self.y = y
-
-
-def evaluate_model(
-        model: LinearModel or BaseMultilayerPerceptron,
-        train_data: TrainData
-):
-    print(f'\n---------- {type(model)} ----------')
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        train_data.X,
-        train_data.y,
-        random_state=0,
-        test_size=.20
-    )
-
-    model.fit(X_train, y_train)
-
-    p_train = model.predict(X_train)
-    p_test = model.predict(X_test)
-
-    mse_train = mean_squared_error(y_train, p_train)
-    mse_test = mean_squared_error(y_test, p_test)
-
-    print(f'Median target {np.median(train_data.y)}')
-    print(f'Train {mse_train}, test {mse_test}')
-
-    # sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
-    # sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
-    # sns.lineplot(x=train_data.X['words_freq_count_ratio'].values, y=train_data.y)
-    # plt.show()
 
 
 # ---------------------------- Read external files --------------------------- #
@@ -68,30 +37,17 @@ commonlitreadabilityprize_input_dir = os.path.join(input_dir, 'commonlitreadabil
 custom_input_dir = os.path.join(input_dir, 'custom')
 output_dir = os.path.join(project_dir, 'out')
 
-with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as train_csv_fp:
-    train_csv_df: DataFrame = pd.read_csv(train_csv_fp)
-
-with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as test_csv_fp:
-    test_csv_df: DataFrame = pd.read_csv(test_csv_fp)
-
-with open(os.path.join(custom_input_dir, 'unigram_freq.csv')) as unigram_freq_fp:
-    unigram_freq_df: DataFrame = pd.read_csv(unigram_freq_fp, index_col='word')
-    unigram_freq_dict: dict = unigram_freq_df.to_dict().get('count')
-
-if os.path.isfile(os.path.join(output_dir, 'trained_4_1.csv')):
-    with open(os.path.join(output_dir, 'trained_4_1.csv')) as trained_csv_fp_1:
-        trained_csv_df_1: DataFrame or None = pd.read_csv(trained_csv_fp_1)
-else:
-    trained_csv_df_1 = None
-
 
 # ---------------------------- Data Preparation 1 ---------------------------- #
 
-def data_prep_1() -> TrainData:
-    global train_csv_df
-
-    if trained_csv_df_1 is None:
-        X = train_csv_df['excerpt']
+def data_prep_1(df: DataFrame, out_filename: str) -> TrainData:
+    if os.path.isfile(os.path.join(output_dir, out_filename)):
+        with open(os.path.join(output_dir, out_filename)) as csv_fp:
+            df = pd.read_csv(csv_fp)
+            # The X:
+            X = df
+    else:
+        X = df['excerpt']
 
         # create the transform
         vectorizer = TfidfVectorizer(
@@ -129,9 +85,9 @@ def data_prep_1() -> TrainData:
             X_words_freq_count_ratio.append(words_freq / words_count)
 
         # Add the new variables to the main DataFrame
-        train_csv_df['words_count'] = X_words_count
-        train_csv_df['words_freq'] = X_words_freq
-        train_csv_df['words_freq_count_ratio'] = X_words_freq_count_ratio
+        df['words_count'] = X_words_count
+        df['words_freq'] = X_words_freq
+        df['words_freq_count_ratio'] = X_words_freq_count_ratio
 
         # Scaling numeric variables
         transformers = [
@@ -149,9 +105,9 @@ def data_prep_1() -> TrainData:
             transformers,
             remainder='passthrough'
         )
-        train_csv_df = ct.fit_transform(train_csv_df)
-        train_csv_df = DataFrame(
-            data=train_csv_df,
+        df = ct.fit_transform(df)
+        df = DataFrame(
+            data=df,
             columns=[
                 'words_count',
                 'words_freq',
@@ -167,37 +123,75 @@ def data_prep_1() -> TrainData:
 
         # The X:
         X = X_vectorized
-        X['words_freq_count_ratio'] = train_csv_df['words_freq_count_ratio']
-        X['words_count'] = train_csv_df[['words_count']]
-        X['words_freq'] = train_csv_df[['words_freq']]
+        X['words_freq_count_ratio'] = df['words_freq_count_ratio']
+        X['words_count'] = df[['words_count']]
+        X['words_freq'] = df[['words_freq']]
 
         # Save new DataSet
-        X.to_csv(os.path.join(output_dir, 'trained_4_1.csv'), index=False)
-    else:
-        # The X:
-        X = trained_csv_df_1
+        X.to_csv(os.path.join(output_dir, out_filename), index=False)
 
     # The y:
-    y = train_csv_df['target']
+    y = df['target']
 
-    return TrainData(X, y)
+    return TrainData(X, y, df)
+
+
+with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as train_csv_fp:
+    train_csv_df: DataFrame = pd.read_csv(train_csv_fp)
+    train_data_1 = data_prep_1(train_csv_df, 'train_4_1.csv')
+
+with open(os.path.join(commonlitreadabilityprize_input_dir, 'test.csv')) as test_csv_fp:
+    test_csv_df: DataFrame = pd.read_csv(test_csv_fp)
+    test_data_1 = data_prep_1(train_csv_df, 'test_4_1.csv')
 
 
 # -------------------------------- Modelling 1 ------------------------------- #
 
-train_data_1 = data_prep_1()
+def train_model(
+        model: LinearModel,
+        train_data: TrainData
+) -> LinearModel:
+    print(f'\n---------- {type(model)} ----------')
+    X_train, X_test, y_train, y_test = train_test_split(
+        train_data.X,
+        train_data.y,
+        random_state=0,
+        test_size=.10
+    )
+    model.fit(X_train, y_train)
+    p_train = model.predict(X_train)
+    p_test = model.predict(X_test)
+    mse_train = mean_squared_error(y_train, p_train)
+    mse_test = mean_squared_error(y_test, p_test)
+    print(f'Median target {np.median(train_data.y)}')
+    print(f'Train {mse_train}, test {mse_test}')
+    # sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
+    # sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
+    # sns.lineplot(x=train_data.X['words_freq_count_ratio'].values, y=train_data.y)
+    # plt.show()
+    return model
 
-evaluate_model(linear_model.LinearRegression(), train_data_1)
-evaluate_model(linear_model.RANSACRegressor(), train_data_1)
 
-evaluate_model(ensemble.AdaBoostRegressor(), train_data_1)
-evaluate_model(ensemble.BaggingRegressor(), train_data_1)
-evaluate_model(ensemble.RandomForestRegressor(), train_data_1)
+def test_model(
+        model: LinearModel,
+        train_data: TrainData
+):
+    print(f'\n---------- {type(model)} ----------')
+    X_test, y_test = (train_data.X, train_data.y)
+    p_test = model.predict(X_test)
+    mse_test = mean_squared_error(y_test, p_test)
+    print(f'Median target {np.median(train_data.y)}')
+    print(f'Final Test {mse_test}')
+    # sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
+    # sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
+    # sns.lineplot(x=train_data.X['words_freq_count_ratio'].values, y=train_data.y)
+    # plt.show()
 
-# evaluate_model(
-#     MLPRegressor(hidden_layer_sizes=[4, 4], max_iter=1000, tol=-1, verbose=False),
-#     train_data_1
-# )
+
+# Train LinearRegression
+trained_model = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
+# Test LinearRegression
+test_model(trained_model, test_data_1)
 
 
 # -------------------------------- Evaluation -------------------------------- #
