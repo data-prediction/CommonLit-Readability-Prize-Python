@@ -2,21 +2,24 @@
 
 import os
 import sys
+import nltk
 
 import pandas as pd
 import numpy as np
+
 from gensim.models import Word2Vec
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
-from sklearn import linear_model
+# from sklearn import linear_model
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
 from sklearn.compose import ColumnTransformer
-from gensim.models import KeyedVectors
+# from gensim.models import KeyedVectors
 from tidytext import unnest_tokens, bind_tf_idf
 from siuba import _, count, arrange
+from nltk.tokenize import word_tokenize
 
 # ------------------------ Useful methods and classes ------------------------ #
 
@@ -50,11 +53,11 @@ def data_prep_1(df_orig: DataFrame, out_filename_main: str, out_filename_X: str)
     out_filepath_main = os.path.join(output_dir, out_filename_main)
     out_filepath_X = os.path.join(output_dir, out_filename_X)
 
-    if os.path.isfile(out_filename_main) and os.path.isfile(out_filename_X):
+    if os.path.isfile(out_filepath_main) and os.path.isfile(out_filepath_X):
         with open(out_filepath_main) as csv_fp:
             # Main CSV at this step:
             df_orig = pd.read_csv(csv_fp)
-        with open(out_filename_X) as csv_fp:
+        with open(out_filepath_X) as csv_fp:
             # The X:
             X = pd.read_csv(csv_fp)
     else:
@@ -160,7 +163,21 @@ train_data_1.df = train_data_1.df.reindex(columns=col_list_main, fill_value=0)
 test_data_1.df = test_data_1.df.reindex(columns=col_list_main, fill_value=0)
 
 
+def tokenizer(text: str) -> list:
+    english_stopwords = []  # stopwords.words('english')
+    return [
+        w.lower() for w in word_tokenize(text) if len(w) > 3 and w not in english_stopwords
+    ]
+
+
+def cleaner(text: str) -> str:
+    tokens = tokenizer(text)
+    return ' '.join(tokens)
+
+
 def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str) -> TrainData:
+    orig_df['excerpt_tokenized'] = orig_df['excerpt'].apply(tokenizer)
+    orig_df['excerpt_cleaned'] = orig_df['excerpt'].apply(cleaner)
     X_unnested: DataFrame = (
             orig_df
             >> unnest_tokens(_.word, _.excerpt)
@@ -169,32 +186,24 @@ def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str)
             >> arrange(-_.tf_idf)
     )
 
-    tokenized_text = []
-    word_index = 0
-    for value in row.values:
-        word = vector_columns[word_index]
-        word_index += 1
-        #if len(word) < 4:
-        #    continue
-        if value > 0:
-            tokenized_text.append(word)
+    # TODO: https://www.kaggle.com/francescorea/commonlit-readability-modelling-v2/edit/run/69089597
 
     vector_size = 30
     word_2_vec_model = Word2Vec(
-        X_tokenized_texts,
+        orig_df['excerpt_tokenized'],
         min_count=1,
         vector_size=vector_size,
         window=5,
         # hs=1
     )
 
+    # word_2_vec_model.wv.get_vector('hello')
     embedding_df = DataFrame(
         data=word_2_vec_model.wv.index_to_key,
         columns=['word']
     )
-
     for i in range(0, 30):
-        embedding_df[f'vector_{i}'] = word_2_vec_model.wv.vectors[:, i]
+        embedding_df[f'V{i+1}'] = word_2_vec_model.wv.vectors[:, i]
 
     sys.exit(0)
     # google_news_vectors_negative_file = os.path.join(custom_input_dir, 'GoogleNews-vectors-negative300.bin')
