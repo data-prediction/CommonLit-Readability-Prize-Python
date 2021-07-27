@@ -5,17 +5,12 @@ import sys
 
 import pandas as pd
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
 from sklearn import linear_model
-# from sklearn import ensemble
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
-# noinspection PyProtectedMember
-from sklearn.linear_model._base import LinearModel
 from sklearn.preprocessing import RobustScaler
 from sklearn.compose import ColumnTransformer
 
@@ -23,13 +18,13 @@ from sklearn.compose import ColumnTransformer
 # ------------------------ Useful methods and classes ------------------------ #
 
 class TrainData:
-    def __init__(self, x, y, df: DataFrame):
+    def __init__(self, df: DataFrame, X: DataFrame, y: DataFrame = None):
         self.df = df
-        self.X = x
+        self.X = X
         self.y = y
 
 
-# ---------------------------- Read external files --------------------------- #
+# ---------------------- External files and directories ---------------------- #
 
 project_dir = os.path.dirname(os.path.realpath(__file__))
 input_dir = os.path.join(os.path.dirname(project_dir), 'input')
@@ -40,15 +35,24 @@ output_dir = os.path.join(project_dir, 'out')
 
 # ---------------------------- Data Preparation 1 ---------------------------- #
 
-def data_prep_1(df: DataFrame, out_filename: str) -> TrainData:
-    if os.path.isfile(os.path.join(output_dir, out_filename)):
-        with open(os.path.join(output_dir, out_filename)) as csv_fp:
+def data_prep_1(df_orig: DataFrame, out_filename: str) -> TrainData:
+    df = df_orig.copy()
+
+    # The y:
+    if 'target' in df.columns:
+        y = df['target']
+    else:
+        y = None
+
+    out_filepath = os.path.join(output_dir, out_filename)
+    if os.path.isfile(out_filepath):
+        with open(out_filepath) as csv_fp:
             df = pd.read_csv(csv_fp)
             # The X:
             X = df
     else:
+        df_columns = list(df.columns)
         X = df['excerpt']
-
         # create the transform
         vectorizer = TfidfVectorizer(
             stop_words='english',
@@ -105,20 +109,15 @@ def data_prep_1(df: DataFrame, out_filename: str) -> TrainData:
             transformers,
             remainder='passthrough'
         )
+        # df.columns
         df = ct.fit_transform(df)
         df = DataFrame(
             data=df,
             columns=[
-                'words_count',
-                'words_freq',
-                'words_freq_count_ratio',
-                'id',
-                'url_legal',
-                'license',
-                'excerpt',
-                'target',
-                'standard_error',
-            ]
+                        'words_count',
+                        'words_freq',
+                        'words_freq_count_ratio'
+                    ] + df_columns
         )
 
         # The X:
@@ -128,30 +127,35 @@ def data_prep_1(df: DataFrame, out_filename: str) -> TrainData:
         X['words_freq'] = df[['words_freq']]
 
         # Save new DataSet
-        X.to_csv(os.path.join(output_dir, out_filename), index=False)
+        X.to_csv(out_filepath, index=False)
 
-    # The y:
-    y = df['target']
-
-    return TrainData(X, y, df)
+    return TrainData(df_orig, X, y,)
 
 
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as train_csv_fp:
     train_csv_df: DataFrame = pd.read_csv(train_csv_fp)
+    # Prepare data for Training
     train_data_1 = data_prep_1(train_csv_df, 'train_4_1.csv')
 
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'test.csv')) as test_csv_fp:
+    # Prepare data for Testing
     test_csv_df: DataFrame = pd.read_csv(test_csv_fp)
-    test_data_1 = data_prep_1(train_csv_df, 'test_4_1.csv')
+    # Prepare data for Testing
+    test_data_1 = data_prep_1(test_csv_df, 'test_4_1.csv')
+
+# Standardize test and train columns
+col_list = list(set().union(test_data_1.X.columns, train_data_1.X.columns))
+test_data_1.X = test_data_1.X.reindex(columns=col_list, fill_value=0)
+train_data_1.X = train_data_1.X.reindex(columns=col_list, fill_value=0)
 
 
 # -------------------------------- Modelling 1 ------------------------------- #
 
 def train_model(
-        model: LinearModel,
+        model: linear_model.LinearRegression,
         train_data: TrainData
-) -> LinearModel:
-    print(f'\n---------- {type(model)} ----------')
+) -> linear_model.LinearRegression:
+    print(f'\n---------- Training {type(model)} ----------')
     X_train, X_test, y_train, y_test = train_test_split(
         train_data.X,
         train_data.y,
@@ -165,38 +169,33 @@ def train_model(
     mse_test = mean_squared_error(y_test, p_test)
     print(f'Median target {np.median(train_data.y)}')
     print(f'Train {mse_train}, test {mse_test}')
-    # sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
-    # sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
-    # sns.lineplot(x=train_data.X['words_freq_count_ratio'].values, y=train_data.y)
-    # plt.show()
     return model
 
 
-def test_model(
-        model: LinearModel,
-        train_data: TrainData
-):
-    print(f'\n---------- {type(model)} ----------')
-    X_test, y_test = (train_data.X, train_data.y)
-    p_test = model.predict(X_test)
-    mse_test = mean_squared_error(y_test, p_test)
-    print(f'Median target {np.median(train_data.y)}')
-    print(f'Final Test {mse_test}')
-    # sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
-    # sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
-    # sns.lineplot(x=train_data.X['words_freq_count_ratio'].values, y=train_data.y)
-    # plt.show()
-
-
-# Train LinearRegression
+# Train and Test LinearRegression
 trained_model = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
-# Test LinearRegression
-test_model(trained_model, test_data_1)
 
 
 # -------------------------------- Evaluation -------------------------------- #
 
+def evaluate_model(
+        model: linear_model.LinearRegression,
+        test_data: TrainData
+) -> DataFrame:
+    print(f'\n---------- Evaluating {type(model)} ----------')
+    p_test = model.predict(test_data_1.X)
+    p_df = DataFrame()
+    p_df['id'] = test_data.df[['id']]
+    p_df['target'] = p_test
+    return p_df
+
+
+# Evaluate LinearRegression model
+result_df = evaluate_model(trained_model, test_data_1)
+
 
 # -------------------------------- Deployment -------------------------------- #
+
+result_df.to_csv(output_dir.join('result_4.csv'))
 
 sys.exit(0)
