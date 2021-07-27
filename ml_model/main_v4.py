@@ -5,6 +5,7 @@ import sys
 
 import pandas as pd
 import numpy as np
+from gensim.models import Word2Vec
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
 from sklearn import linear_model
@@ -13,6 +14,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
 from sklearn.compose import ColumnTransformer
+from gensim.models import KeyedVectors
 
 
 # ------------------------ Useful methods and classes ------------------------ #
@@ -29,6 +31,7 @@ class TrainData:
 project_dir = os.path.realpath(os.getcwd())
 input_dir = os.path.join(project_dir, 'input')
 commonlitreadabilityprize_input_dir = os.path.join(input_dir, 'commonlitreadabilityprize')
+custom_input_dir = os.path.join(input_dir, 'custom')
 output_dir = os.path.join(project_dir, 'ml_model', 'out')
 if not os.path.isdir(output_dir):
     os.makedirs(output_dir)
@@ -123,6 +126,7 @@ def data_prep_1(df_orig: DataFrame, out_filename: str) -> TrainData:
 
         # The X:
         X = X_vectorized
+
         X['words_freq_count_ratio'] = df['words_freq_count_ratio']
         X['words_count'] = df[['words_count']]
         X['words_freq'] = df[['words_freq']]
@@ -148,6 +152,16 @@ with open(os.path.join(commonlitreadabilityprize_input_dir, 'test.csv')) as test
 col_list = list(set().union(test_data_1.X.columns, train_data_1.X.columns))
 test_data_1.X = test_data_1.X.reindex(columns=col_list, fill_value=0)
 train_data_1.X = train_data_1.X.reindex(columns=col_list, fill_value=0)
+
+
+def data_prep_2():
+    google_news_vectors_negative_file = os.path.join(custom_input_dir, 'GoogleNews-vectors-negative300.bin')
+    model = KeyedVectors.load_word2vec_format(google_news_vectors_negative_file, binary=True)
+    print(model)
+    exit(0)
+
+
+data_prep_2()
 
 
 # -------------------------------- Modelling 1 ------------------------------- #
@@ -185,8 +199,10 @@ def evaluate_model(
 ) -> DataFrame:
     print(f'\n---------- Evaluating {type(model)} ----------')
     p_test = model.predict(test_data.X)
-    p_df = DataFrame()
-    p_df['id'] = test_data.df[['id']]
+    p_df = DataFrame(
+        data=test_data.df[['id']].values,
+        columns=['id']
+    )
     p_df['target'] = p_test
     print(p_df)
     return p_df
