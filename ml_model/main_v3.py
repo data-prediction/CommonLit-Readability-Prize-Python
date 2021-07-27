@@ -323,7 +323,7 @@ def data_prep_3() -> TrainData:
         vectorizer = HashingVectorizer(
             stop_words='english',
             token_pattern=r'\b[^\d\W]+\b',
-            n_features=2**11
+            n_features=2**9
         )
         # tokenize and build vocab
         vectorizer.fit(X)
@@ -353,7 +353,7 @@ train_data_3 = data_prep_3()
 evaluate_model(
     MLPRegressor(
         hidden_layer_sizes=[2],
-        max_iter=60,
+        max_iter=50,
         tol=-1
     ),
     train_data_3
