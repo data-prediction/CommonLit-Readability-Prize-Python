@@ -15,7 +15,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
 from sklearn.compose import ColumnTransformer
 from gensim.models import KeyedVectors
-
+from tidytext import unnest_tokens, bind_tf_idf
+from siuba import _, count, arrange
 
 # ------------------------ Useful methods and classes ------------------------ #
 
@@ -39,24 +40,26 @@ if not os.path.isdir(output_dir):
 
 # ---------------------------- Data Preparation 1 ---------------------------- #
 
-def data_prep_1(df_orig: DataFrame, out_filename: str) -> TrainData:
-    df = df_orig.copy()
-
+def data_prep_1(df_orig: DataFrame, out_filename_main: str, out_filename_X: str) -> TrainData:
     # The y:
-    if 'target' in df.columns:
-        y = df['target']
+    if 'target' in df_orig.columns:
+        y = df_orig['target']
     else:
         y = None
 
-    out_filepath = os.path.join(output_dir, out_filename)
-    if os.path.isfile(out_filepath):
-        with open(out_filepath) as csv_fp:
-            df = pd.read_csv(csv_fp)
+    out_filepath_main = os.path.join(output_dir, out_filename_main)
+    out_filepath_X = os.path.join(output_dir, out_filename_X)
+
+    if os.path.isfile(out_filename_main) and os.path.isfile(out_filename_X):
+        with open(out_filepath_main) as csv_fp:
+            # Main CSV at this step:
+            df_orig = pd.read_csv(csv_fp)
+        with open(out_filename_X) as csv_fp:
             # The X:
-            X = df
+            X = pd.read_csv(csv_fp)
     else:
-        df_columns = list(df.columns)
-        X = df['excerpt']
+        df_columns = list(df_orig.columns)
+        X = df_orig['excerpt']
         # create the transform
         vectorizer = TfidfVectorizer(
             stop_words='english',
@@ -66,11 +69,14 @@ def data_prep_1(df_orig: DataFrame, out_filename: str) -> TrainData:
         )
         # tokenize and build vocab
         vectorizer.fit(X)
+        vector_columns = vectorizer.get_feature_names()
         # encode document
         X_vector: csr_matrix = vectorizer.transform(X)
-        X_vectorized = pd.DataFrame(
+
+        # The X:
+        X = pd.DataFrame(
             X_vector.toarray(),
-            columns=vectorizer.get_feature_names()
+            columns=vector_columns
         )
 
         X_words_count = []
@@ -78,24 +84,24 @@ def data_prep_1(df_orig: DataFrame, out_filename: str) -> TrainData:
         X_words_freq_count_ratio = []
 
         # Calculate words count and frequency for each record
-        for index, row in X_vectorized.iterrows():
+        for index, row in X.iterrows():
             row: pd.Series
             row.value_counts()
-            words_count = 0
             words_freq = 0
+            words_count = 0
             for word_freq, word_count in row.value_counts().iteritems():
                 if word_freq == 0:
                     continue
-                words_count += word_count
                 words_freq += word_freq
+                words_count += word_count
             X_words_count.append(words_count)
             X_words_freq.append(words_freq)
             X_words_freq_count_ratio.append(words_freq / words_count)
 
         # Add the new variables to the main DataFrame
-        df['words_count'] = X_words_count
-        df['words_freq'] = X_words_freq
-        df['words_freq_count_ratio'] = X_words_freq_count_ratio
+        df_orig['words_count'] = X_words_count
+        df_orig['words_freq'] = X_words_freq
+        df_orig['words_freq_count_ratio'] = X_words_freq_count_ratio
 
         # Scaling numeric variables
         transformers = [
@@ -113,55 +119,92 @@ def data_prep_1(df_orig: DataFrame, out_filename: str) -> TrainData:
             transformers,
             remainder='passthrough'
         )
-        # df.columns
-        df = ct.fit_transform(df)
-        df = DataFrame(
-            data=df,
+        df_orig = ct.fit_transform(df_orig)
+        df_orig = DataFrame(
+            data=df_orig,
             columns=[
                         'words_count',
                         'words_freq',
-                        'words_freq_count_ratio'
+                        'words_freq_count_ratio',
                     ] + df_columns
         )
 
-        # The X:
-        X = X_vectorized
-
-        X['words_freq_count_ratio'] = df['words_freq_count_ratio']
-        X['words_count'] = df[['words_count']]
-        X['words_freq'] = df[['words_freq']]
-
         # Save new DataSet
-        X.to_csv(out_filepath, index=False)
+        X.to_csv(out_filepath_X, index=False)
+        df_orig.to_csv(out_filepath_main, index=False)
 
-    return TrainData(df_orig, X, y,)
+    return TrainData(df_orig, X, y)
 
 
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as train_csv_fp:
     train_csv_df: DataFrame = pd.read_csv(train_csv_fp)
     # Prepare data for Training
-    train_data_1 = data_prep_1(train_csv_df, 'train_4_1.csv')
+    train_data_1 = data_prep_1(train_csv_df, 'train_4_1_main.csv', 'train_4_1_train.csv')
 
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'test.csv')) as test_csv_fp:
     # Prepare data for Testing
     test_csv_df: DataFrame = pd.read_csv(test_csv_fp)
     # Prepare data for Testing
-    test_data_1 = data_prep_1(test_csv_df, 'test_4_1.csv')
+    test_data_1 = data_prep_1(test_csv_df, 'test_4_1_main.csv', 'test_4_1_test.csv')
+
 
 # Standardize test and train columns
-col_list = list(set().union(test_data_1.X.columns, train_data_1.X.columns))
-test_data_1.X = test_data_1.X.reindex(columns=col_list, fill_value=0)
-train_data_1.X = train_data_1.X.reindex(columns=col_list, fill_value=0)
+
+col_list_X = list(set().union(test_data_1.X.columns, train_data_1.X.columns))
+col_list_main = list(set().union(test_data_1.df.columns, train_data_1.df.columns))
+
+train_data_1.X = train_data_1.X.reindex(columns=col_list_X, fill_value=0)
+test_data_1.X = test_data_1.X.reindex(columns=col_list_X, fill_value=0)
+
+train_data_1.df = train_data_1.df.reindex(columns=col_list_main, fill_value=0)
+test_data_1.df = test_data_1.df.reindex(columns=col_list_main, fill_value=0)
 
 
-def data_prep_2():
-    google_news_vectors_negative_file = os.path.join(custom_input_dir, 'GoogleNews-vectors-negative300.bin')
-    model = KeyedVectors.load_word2vec_format(google_news_vectors_negative_file, binary=True)
-    print(model)
-    exit(0)
+def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str) -> TrainData:
+    X_unnested: DataFrame = (
+            orig_df
+            >> unnest_tokens(_.word, _.excerpt)
+            >> count(_.id, _.word)
+            >> bind_tf_idf(_.word, _.id, _.n)
+            >> arrange(-_.tf_idf)
+    )
+
+    tokenized_text = []
+    word_index = 0
+    for value in row.values:
+        word = vector_columns[word_index]
+        word_index += 1
+        #if len(word) < 4:
+        #    continue
+        if value > 0:
+            tokenized_text.append(word)
+
+    vector_size = 30
+    word_2_vec_model = Word2Vec(
+        X_tokenized_texts,
+        min_count=1,
+        vector_size=vector_size,
+        window=5,
+        # hs=1
+    )
+
+    embedding_df = DataFrame(
+        data=word_2_vec_model.wv.index_to_key,
+        columns=['word']
+    )
+
+    for i in range(0, 30):
+        embedding_df[f'vector_{i}'] = word_2_vec_model.wv.vectors[:, i]
+
+    sys.exit(0)
+    # google_news_vectors_negative_file = os.path.join(custom_input_dir, 'GoogleNews-vectors-negative300.bin')
+    # model = KeyedVectors.load_word2vec_format(google_news_vectors_negative_file, binary=True)
+    # print(model)
 
 
-data_prep_2()
+train_data_2 = data_prep_2(train_data_1.df, train_data_1.X, 'train_4_2.csv')
+
+sys.exit(0)
 
 
 # -------------------------------- Modelling 1 ------------------------------- #
