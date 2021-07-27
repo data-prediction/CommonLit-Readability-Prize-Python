@@ -8,7 +8,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer, HashingVectorizer
 # noinspection PyProtectedMember
 from sklearn.linear_model._base import LinearModel
 from sklearn.metrics import mean_squared_error
@@ -39,7 +39,7 @@ def evaluate_model(
         train_data.X,
         train_data.y,
         random_state=0,
-        test_size=.15
+        test_size=.20
     )
 
     model.fit(X_train, y_train)
@@ -53,10 +53,10 @@ def evaluate_model(
     print(f'Median target {np.median(train_data.y)}')
     print(f'Train {mse_train}, test {mse_test}')
 
-    sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
-    sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
-    sns.lineplot(x=train_data.X['words_freq_count_ratio'].values, y=train_data.y)
-    plt.show()
+    # sns.scatterplot(x=X_train['words_freq_count_ratio'].values, y=y_train)
+    # sns.scatterplot(x=X_test['words_freq_count_ratio'].values, y=y_test)
+    # sns.lineplot(x=train_data.X['words_freq_count_ratio'].values, y=train_data.y)
+    # plt.show()
 
 
 # ---------------------------- Read external files --------------------------- #
@@ -88,6 +88,12 @@ if os.path.isfile(os.path.join(output_dir, 'trained_2.csv')):
         trained_csv_df_2: DataFrame or None = pd.read_csv(trained_csv_fp_2)
 else:
     trained_csv_df_2 = None
+
+if os.path.isfile(os.path.join(output_dir, 'trained_3.csv')):
+    with open(os.path.join(output_dir, 'trained_3.csv')) as trained_csv_fp:
+        trained_csv_df_3: DataFrame or None = pd.read_csv(trained_csv_fp)
+else:
+    trained_csv_df_3 = None
 
 
 # ---------------------------- Data Preparation 1 ---------------------------- #
@@ -286,14 +292,10 @@ def data_prep_2() -> TrainData:
     X = DataFrame(
         data=train_csv_df[[
             'words_count',
-            'words_freq',
-            'words_freq_count_ratio',
             'words_internal_freq'
         ]],
         columns=[
             'words_count',
-            'words_freq',
-            'words_freq_count_ratio',
             'words_internal_freq'
         ]
     )
@@ -304,7 +306,58 @@ def data_prep_2() -> TrainData:
 # -------------------------------- Modelling 2 ------------------------------- #
 
 train_data_2 = data_prep_2()
-evaluate_model(None, train_data_2)
+evaluate_model(
+    MLPRegressor(hidden_layer_sizes=[2, 4, 2], max_iter=200, tol=-1, verbose=False),
+    train_data_2
+)
+
+
+# ---------------------------- Data Preparation 3 ---------------------------- #
+
+def data_prep_3() -> TrainData:
+    global train_csv_df
+
+    if trained_csv_df_3 is None:
+        X = train_csv_df['excerpt']
+        # create the transform
+        vectorizer = HashingVectorizer(
+            stop_words='english',
+            token_pattern=r'\b[^\d\W]+\b',
+            n_features=2**11
+        )
+        # tokenize and build vocab
+        vectorizer.fit(X)
+        # encode document
+        X_vector: csr_matrix = vectorizer.transform(X)
+        X_vectorized = pd.DataFrame(X_vector.toarray())
+        X_vectorized.to_csv(os.path.join(output_dir, 'trained_3.csv'), index=False)
+    else:
+        X_vectorized = trained_csv_df_3
+
+    # The y:
+    y = train_csv_df['target'].values
+
+    # The X:
+    X = DataFrame(
+        data=X_vectorized
+    )
+    X['words_count'] = train_csv_df[['words_count']]
+    X['words_internal_freq'] = train_csv_df[['words_internal_freq']]
+
+    return TrainData(X, y)
+
+
+# -------------------------------- Modelling 3 ------------------------------- #
+
+train_data_3 = data_prep_3()
+evaluate_model(
+    MLPRegressor(
+        hidden_layer_sizes=[2],
+        max_iter=60,
+        tol=-1
+    ),
+    train_data_3
+)
 
 
 # -------------------------------- Evaluation -------------------------------- #
