@@ -9,16 +9,16 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer, HashingVectorizer
-# noinspection PyProtectedMember
-from sklearn.linear_model._base import LinearModel
+from sklearn import linear_model
+from sklearn import ensemble
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
 # noinspection PyProtectedMember
 from sklearn.neural_network._multilayer_perceptron import BaseMultilayerPerceptron
+# noinspection PyProtectedMember
+from sklearn.linear_model._base import LinearModel
 from sklearn.preprocessing import RobustScaler
-from sklearn.neural_network import MLPRegressor
 from sklearn.compose import ColumnTransformer
 
 
@@ -187,12 +187,17 @@ def data_prep_1() -> TrainData:
 
 train_data_1 = data_prep_1()
 
-evaluate_model(LinearRegression(), train_data_1)
+evaluate_model(linear_model.LinearRegression(), train_data_1)
+evaluate_model(linear_model.RANSACRegressor(), train_data_1)
 
-evaluate_model(
-    MLPRegressor(hidden_layer_sizes=[4, 4], max_iter=1000, tol=-1, verbose=False),
-    train_data_1
-)
+evaluate_model(ensemble.AdaBoostRegressor(), train_data_1)
+evaluate_model(ensemble.BaggingRegressor(), train_data_1)
+evaluate_model(ensemble.RandomForestRegressor(), train_data_1)
+
+# evaluate_model(
+#     MLPRegressor(hidden_layer_sizes=[4, 4], max_iter=1000, tol=-1, verbose=False),
+#     train_data_1
+# )
 
 
 # -------------------------------- Evaluation -------------------------------- #
