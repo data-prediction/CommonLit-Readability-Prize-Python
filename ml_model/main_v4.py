@@ -26,11 +26,12 @@ class TrainData:
 
 # ---------------------- External files and directories ---------------------- #
 
-project_dir = os.path.dirname(os.path.realpath(__file__))
-input_dir = os.path.join(os.path.dirname(project_dir), 'input')
+project_dir = os.path.realpath(os.getcwd())
+input_dir = os.path.join(project_dir, 'input')
 commonlitreadabilityprize_input_dir = os.path.join(input_dir, 'commonlitreadabilityprize')
-custom_input_dir = os.path.join(input_dir, 'custom')
-output_dir = os.path.join(project_dir, 'out')
+output_dir = os.path.join(project_dir, 'ml_model', 'out')
+if not os.path.isdir(output_dir):
+    os.makedirs(output_dir)
 
 
 # ---------------------------- Data Preparation 1 ---------------------------- #
@@ -183,10 +184,11 @@ def evaluate_model(
         test_data: TrainData
 ) -> DataFrame:
     print(f'\n---------- Evaluating {type(model)} ----------')
-    p_test = model.predict(test_data_1.X)
+    p_test = model.predict(test_data.X)
     p_df = DataFrame()
     p_df['id'] = test_data.df[['id']]
     p_df['target'] = p_test
+    print(p_df)
     return p_df
 
 
@@ -196,6 +198,6 @@ result_df = evaluate_model(trained_model, test_data_1)
 
 # -------------------------------- Deployment -------------------------------- #
 
-result_df.to_csv(output_dir.join('result_4.csv'))
+result_df.to_csv(os.path.join(output_dir, 'result_4.csv'), index=False)
 
 sys.exit(0)
