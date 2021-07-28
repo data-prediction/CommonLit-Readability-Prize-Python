@@ -2,7 +2,6 @@
 
 import os
 import sys
-import nltk
 
 import pandas as pd
 import numpy as np
@@ -20,6 +19,7 @@ from sklearn.compose import ColumnTransformer
 from tidytext import unnest_tokens, bind_tf_idf
 from siuba import _, count, arrange
 from nltk.tokenize import word_tokenize
+
 
 # ------------------------ Useful methods and classes ------------------------ #
 
@@ -150,7 +150,6 @@ with open(os.path.join(commonlitreadabilityprize_input_dir, 'test.csv')) as test
     # Prepare data for Testing
     test_data_1 = data_prep_1(test_csv_df, 'test_4_1_main.csv', 'test_4_1_test.csv')
 
-
 # Standardize test and train columns
 
 col_list_X = list(set().union(test_data_1.X.columns, train_data_1.X.columns))
@@ -166,7 +165,8 @@ test_data_1.df = test_data_1.df.reindex(columns=col_list_main, fill_value=0)
 def tokenizer(text: str) -> list:
     english_stopwords = []  # stopwords.words('english')
     return [
-        w.lower() for w in word_tokenize(text) if len(w) > 3 and w not in english_stopwords and not w.isnumeric()
+        w.lower() for w in word_tokenize(text) \
+        if len(w) > 3 and w not in english_stopwords and w.isalpha()
     ]
 
 
@@ -176,6 +176,8 @@ def cleaner(text: str) -> str:
 
 
 def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str) -> TrainData:
+    vector_size = 30
+
     orig_df['excerpt_tokenized'] = orig_df['excerpt'].apply(tokenizer)
     orig_df['excerpt_cleaned'] = orig_df['excerpt'].apply(cleaner)
     X_unnested: DataFrame = (
@@ -186,9 +188,6 @@ def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str)
             >> arrange(-_.tf_idf)
     )
 
-    # TODO: https://www.kaggle.com/francesX_unnestedcorea/commonlit-readability-modelling-v2/edit/run/69089597
-
-    vector_size = 30
     word_2_vec_model = Word2Vec(
         orig_df['excerpt_tokenized'],
         min_count=1,
@@ -201,8 +200,8 @@ def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str)
         data=word_2_vec_model.wv.index_to_key,
         columns=['word']
     )
-    for i in range(0, 30):
-        embedding_df[f'V{i+1}'] = word_2_vec_model.wv.vectors[:, i]
+    for i in range(0, vector_size):
+        embedding_df[f'V{i + 1}'] = word_2_vec_model.wv.vectors[:, i]
 
     X = pd.merge(
         embedding_df,
@@ -210,7 +209,12 @@ def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str)
         on='word'
     )
 
-    X_grouped = X.groupby('Team').agg({'Age': ['mean', 'min', 'max']})
+    group_dict = dict()
+    for i in range(0, vector_size):
+        group_dict[f'V{i+1}'] = ['mean']
+    group_dict['tf_idf'] = ['mean']
+
+    X_grouped = X.groupby('id').agg(group_dict)
 
     # X_395082cd2 = X.where(X.id == '395082cd2').dropna()
 
@@ -271,7 +275,6 @@ def evaluate_model(
 
 # Evaluate LinearRegression model
 result_df = evaluate_model(trained_model, test_data_1)
-
 
 # -------------------------------- Deployment -------------------------------- #
 
