@@ -271,7 +271,8 @@ def train_model(
 
 
 # Train and Test LinearRegression
-trained_model = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
+trained_model_1 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
+trained_model_2 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
 
 
 # -------------------------------- Evaluation -------------------------------- #
@@ -292,10 +293,10 @@ def evaluate_model(
 
 
 # Evaluate LinearRegression model
-result_df = evaluate_model(trained_model, test_data_1)
+result_df_1 = evaluate_model(trained_model_1, test_data_1)
+result_df_2 = evaluate_model(trained_model_2, test_data_2)
 
 # -------------------------------- Deployment -------------------------------- #
 
-result_df.to_csv(os.path.join(output_dir, 'result_4.csv'), index=False)
-
-sys.exit(0)
+# noinspection PyTypeChecker
+# result_df.to_csv(os.path.join(project_dir, 'submission.csv'), index=False)
