@@ -356,7 +356,7 @@ result_df_1 = evaluate_model(trained_model_1, test_data_1)
 result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
 result_df_2_1 = evaluate_model(trained_model_2_1, test_data_2)
 # result_df_2_2 = evaluate_model(trained_model_2_2, test_data_2)
-result_df_3_1 = evaluate_model(trained_model_3_1, test_data_2)
+result_df_3_1 = evaluate_model(trained_model_3_1, train_data_3)
 # result_df_3_2 = evaluate_model(trained_model_3_2, test_data_2)
 
 
