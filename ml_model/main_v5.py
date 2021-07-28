@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 
 import pandas as pd
 import numpy as np
@@ -344,7 +345,8 @@ def evaluate_model(
     return p_df
 
 
-exit(0)
+sys.exit(0)
+
 
 # Evaluate models
 result_df_1 = evaluate_model(trained_model_1, test_data_1)
