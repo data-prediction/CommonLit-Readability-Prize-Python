@@ -318,13 +318,13 @@ def train_model(
 
 
 # Train and test words vector dataset
-print('\n--------------- Training words vector dataset ---------------')
-trained_model_1 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
+# print('\n--------------- Training words vector dataset ---------------')
+# trained_model_1 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
 
 # Train and test google pretrained model
 print('\n-------------- Training Google pretrained model -------------')
-trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
-trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_2)
+# trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
+trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=2), train_data_2)
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
 print('\n--------- Training Google pretrained model (V only) ---------')
@@ -339,7 +339,7 @@ sys.exit(0)
 
 def evaluate_model(
         model: linear_model.LinearRegression,
-        test_data: TrainDataf
+        test_data: TrainData
 ) -> DataFrame:
     print(f'\nModel type: {type(model)}')
     p_test = model.predict(test_data.X)
@@ -353,11 +353,11 @@ def evaluate_model(
 
 
 # Evaluate models
-print('\n--------------- Evaluating words vector model ---------------')
-result_df_1 = evaluate_model(trained_model_1, test_data_1)
+# print('\n--------------- Evaluating words vector model ---------------')
+# result_df_1 = evaluate_model(trained_model_1, test_data_1)
 
 print('\n------------ Evaluating Google pretrained model -------------')
-result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
+# result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
 result_df_2_1 = evaluate_model(trained_model_2_1, test_data_2)
 
 print('\n-------- Evaluating Google pretrained model (V only) --------')
