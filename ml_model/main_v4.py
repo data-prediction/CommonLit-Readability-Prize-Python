@@ -166,7 +166,7 @@ test_data_1.df = test_data_1.df.reindex(columns=col_list_main, fill_value=0)
 def tokenizer(text: str) -> list:
     english_stopwords = []  # stopwords.words('english')
     return [
-        w.lower() for w in word_tokenize(text) if len(w) > 3 and w not in english_stopwords
+        w.lower() for w in word_tokenize(text) if len(w) > 3 and w not in english_stopwords and not w.isnumeric()
     ]
 
 
@@ -186,7 +186,7 @@ def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str)
             >> arrange(-_.tf_idf)
     )
 
-    # TODO: https://www.kaggle.com/francescorea/commonlit-readability-modelling-v2/edit/run/69089597
+    # TODO: https://www.kaggle.com/francesX_unnestedcorea/commonlit-readability-modelling-v2/edit/run/69089597
 
     vector_size = 30
     word_2_vec_model = Word2Vec(
@@ -197,13 +197,22 @@ def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str)
         # hs=1
     )
 
-    # word_2_vec_model.wv.get_vector('hello')
     embedding_df = DataFrame(
         data=word_2_vec_model.wv.index_to_key,
         columns=['word']
     )
     for i in range(0, 30):
         embedding_df[f'V{i+1}'] = word_2_vec_model.wv.vectors[:, i]
+
+    X = pd.merge(
+        embedding_df,
+        X_unnested,
+        on='word'
+    )
+
+    X_grouped = X.groupby('Team').agg({'Age': ['mean', 'min', 'max']})
+
+    # X_395082cd2 = X.where(X.id == '395082cd2').dropna()
 
     sys.exit(0)
     # google_news_vectors_negative_file = os.path.join(custom_input_dir, 'GoogleNews-vectors-negative300.bin')
