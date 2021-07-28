@@ -199,7 +199,7 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
             X_final = pd.read_csv(csv_fp)
             return TrainData(orig_df, X_final, y)
 
-    vector_size = 30
+    vector_size = 100
 
     orig_df['excerpt_tokenized'] = orig_df['excerpt'].apply(tokenizer)
     orig_df['excerpt_cleaned'] = orig_df['excerpt'].apply(cleaner)
@@ -320,15 +320,15 @@ def train_model(
 # Train and test words vector dataset
 print('\n--------------- Training words vector dataset ---------------')
 trained_model_1_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
-trained_model_1_1 = train_model(ensemble.RandomForestRegressor(n_estimators=500), train_data_1)
+trained_model_1_1 = train_model(ensemble.RandomForestRegressor(n_estimators=200, n_jobs=16), train_data_1)
 
 # Train and test google pretrained model
-print('\n-------------- Training Google pretrained model -------------')
+print('\n----------- Training with Google pretrained model -----------')
 trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
 trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=2), train_data_2)
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
-print('\n--------- Training Google pretrained model (V only) ---------')
+print('\n------ Training with Google pretrained model (V only) -------')
 trained_model_3_0 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
 
 
