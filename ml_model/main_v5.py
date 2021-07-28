@@ -256,7 +256,7 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
         'target'
     ], axis=1, inplace=True)
 
-    X_final_columns = X_final.columns
+    # X_final_columns = X_final.columns
     # Scaling numeric variables
     # transformers = [
     #     [
@@ -318,21 +318,22 @@ def train_model(
 
 
 # Train and test words vector dataset
-# print('\n--------------- Training words vector dataset ---------------')
-# trained_model_1 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
+print('\n--------------- Training words vector dataset ---------------')
+trained_model_1_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
+trained_model_1_1 = train_model(ensemble.RandomForestRegressor(n_estimators=500), train_data_1)
 
 # Train and test google pretrained model
 print('\n-------------- Training Google pretrained model -------------')
-# trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
+trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
 trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=2), train_data_2)
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
 print('\n--------- Training Google pretrained model (V only) ---------')
-trained_model_3_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
+trained_model_3_0 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
 
 
 # For now, evaluating is skipped:
-sys.exit(0)
+# sys.exit(0)
 
 
 # -------------------------------- Evaluation -------------------------------- #
@@ -353,15 +354,16 @@ def evaluate_model(
 
 
 # Evaluate models
-# print('\n--------------- Evaluating words vector model ---------------')
-# result_df_1 = evaluate_model(trained_model_1, test_data_1)
+print('\n--------------- Evaluating words vector model ---------------')
+result_df_1_0 = evaluate_model(trained_model_1_0, test_data_1)
+result_df_1_1 = evaluate_model(trained_model_1_0, test_data_1)
 
 print('\n------------ Evaluating Google pretrained model -------------')
-# result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
+result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
 result_df_2_1 = evaluate_model(trained_model_2_1, test_data_2)
 
 print('\n-------- Evaluating Google pretrained model (V only) --------')
-result_df_3_1 = evaluate_model(trained_model_3_1, test_data_3)
+result_df_3_1 = evaluate_model(trained_model_3_0, test_data_3)
 
 
 # -------------------------------- Deployment -------------------------------- #
