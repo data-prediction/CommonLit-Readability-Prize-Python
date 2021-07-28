@@ -7,7 +7,7 @@ import numpy as np
 
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
-from sklearn import linear_model, ensemble, neural_network
+from sklearn import linear_model, ensemble
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
@@ -312,26 +312,26 @@ def train_model(
 trained_model_1 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
 trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
 trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_2)
-trained_model_2_2 = train_model(
-    neural_network.MLPRegressor(
-        hidden_layer_sizes=[2],
-        max_iter=10000,
-        tol=-1,
-        verbose=False
-    ),
-    train_data_2
-)
+# trained_model_2_2 = train_model(
+#     neural_network.MLPRegressor(
+#         hidden_layer_sizes=[2],
+#         max_iter=10000,
+#         tol=-1,
+#         verbose=False
+#     ),
+#     train_data_2
+# )
 
 trained_model_3_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
-trained_model_3_2 = train_model(
-    neural_network.MLPRegressor(
-        hidden_layer_sizes=[2],
-        max_iter=10000,
-        tol=-1,
-        verbose=False
-    ),
-    train_data_2
-)
+# trained_model_3_2 = train_model(
+#     neural_network.MLPRegressor(
+#         hidden_layer_sizes=[2],
+#         max_iter=10000,
+#         tol=-1,
+#         verbose=False
+#     ),
+#     train_data_2
+# )
 
 
 # -------------------------------- Evaluation -------------------------------- #
@@ -355,9 +355,9 @@ def evaluate_model(
 result_df_1 = evaluate_model(trained_model_1, test_data_1)
 result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
 result_df_2_1 = evaluate_model(trained_model_2_1, test_data_2)
-result_df_2_2 = evaluate_model(trained_model_2_2, test_data_2)
+# result_df_2_2 = evaluate_model(trained_model_2_2, test_data_2)
 result_df_3_1 = evaluate_model(trained_model_3_1, test_data_2)
-result_df_3_2 = evaluate_model(trained_model_3_2, test_data_2)
+# result_df_3_2 = evaluate_model(trained_model_3_2, test_data_2)
 
 
 # -------------------------------- Deployment -------------------------------- #
