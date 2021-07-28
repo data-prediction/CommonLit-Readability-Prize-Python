@@ -300,7 +300,7 @@ def train_model(
         model,
         train_data: TrainData
 ) -> linear_model.LinearRegression:
-    print(f'Model type: {type(model)}')
+    print(f'\nModel type: {type(model)}')
     X_train, X_test, y_train, y_test = train_test_split(
         train_data.X,
         train_data.y,
@@ -318,26 +318,30 @@ def train_model(
 
 
 # Train and test words vector dataset
-print('\n---------- Training words vector dataset ----------')
+print('\n--------------- Training words vector dataset ---------------')
 trained_model_1 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
 
 # Train and test google pretrained model
-print('\n--------- Training Google pretrained model --------')
+print('\n-------------- Training Google pretrained model -------------')
 trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
 trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_2)
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
-print('\n---- Training Google pretrained model (V only) ----')
+print('\n--------- Training Google pretrained model (V only) ---------')
 trained_model_3_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
+
+
+# For now, evaluating is skipped:
+sys.exit(0)
 
 
 # -------------------------------- Evaluation -------------------------------- #
 
 def evaluate_model(
         model: linear_model.LinearRegression,
-        test_data: TrainData
+        test_data: TrainDataf
 ) -> DataFrame:
-    print(f'Model type: {type(model)}')
+    print(f'\nModel type: {type(model)}')
     p_test = model.predict(test_data.X)
     p_df = DataFrame(
         data=test_data.df[['id']].values,
@@ -348,19 +352,15 @@ def evaluate_model(
     return p_df
 
 
-# For now, evaluating is skipped:
-sys.exit(0)
-
-
 # Evaluate models
-print('\n---------- Evaluating words vector model ----------')
+print('\n--------------- Evaluating words vector model ---------------')
 result_df_1 = evaluate_model(trained_model_1, test_data_1)
 
-print('\n------- Evaluating Google pretrained model --------')
+print('\n------------ Evaluating Google pretrained model -------------')
 result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
 result_df_2_1 = evaluate_model(trained_model_2_1, test_data_2)
 
-print('\n--- Evaluating Google pretrained model (V only) ---')
+print('\n-------- Evaluating Google pretrained model (V only) --------')
 result_df_3_1 = evaluate_model(trained_model_3_1, test_data_3)
 
 
@@ -368,3 +368,5 @@ result_df_3_1 = evaluate_model(trained_model_3_1, test_data_3)
 
 # noinspection PyTypeChecker
 # result_df.to_csv(os.path.join(project_dir, 'submission.csv'), index=False)
+
+sys.exit(0)
