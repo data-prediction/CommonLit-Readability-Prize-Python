@@ -148,16 +148,14 @@ def data_prep_1(df_orig: DataFrame, out_filename_main: str, out_filename_X: str)
 
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as train_csv_fp:
     train_csv_df: DataFrame = pd.read_csv(train_csv_fp)
-    # Prepare data for Training
-
 
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'test.csv')) as test_csv_fp:
     # Prepare data for Testing
     test_csv_df: DataFrame = pd.read_csv(test_csv_fp)
-    # Prepare data for Testing
 
-
+# Prepare data for Training
 train_data_1 = data_prep_1(train_csv_df, 'train_4_1_main.csv', 'train_4_1_train.csv')
+# Prepare data for Testing
 test_data_1 = data_prep_1(test_csv_df, 'test_4_1_main.csv', 'test_4_1_test.csv')
 
 # Standardize test and train columns
