@@ -9,14 +9,14 @@ import numpy as np
 from gensim.models import Word2Vec
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
-# from sklearn import linear_model
+from sklearn import linear_model
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
 from sklearn.compose import ColumnTransformer
-# from gensim.models import KeyedVectors
 from tidytext import unnest_tokens, bind_tf_idf
+# noinspection PyProtectedMember
 from siuba import _, count, arrange
 from nltk.tokenize import word_tokenize
 
@@ -133,7 +133,9 @@ def data_prep_1(df_orig: DataFrame, out_filename_main: str, out_filename_X: str)
         )
 
         # Save new DataSet
+        # noinspection PyTypeChecker
         X.to_csv(out_filepath_X, index=False)
+        # noinspection PyTypeChecker
         df_orig.to_csv(out_filepath_main, index=False)
 
     return TrainData(df_orig, X, y)
@@ -175,7 +177,20 @@ def cleaner(text: str) -> str:
     return ' '.join(tokens)
 
 
-def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str) -> TrainData:
+def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
+    # The y:
+    if 'target' in orig_df.columns:
+        y = orig_df['target']
+    else:
+        y = None
+
+    out_filepath = os.path.join(output_dir, out_filename)
+    if os.path.isfile(out_filepath):
+        with open(out_filepath) as csv_fp:
+            # Main CSV at this step:
+            X_final = pd.read_csv(csv_fp)
+            return TrainData(orig_df, X_final, y)
+
     vector_size = 30
 
     orig_df['excerpt_tokenized'] = orig_df['excerpt'].apply(tokenizer)
@@ -203,7 +218,7 @@ def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str)
     for i in range(0, vector_size):
         embedding_df[f'V{i + 1}'] = word_2_vec_model.wv.vectors[:, i]
 
-    X = pd.merge(
+    X_unnested_embedding = pd.merge(
         embedding_df,
         X_unnested,
         on='word'
@@ -214,19 +229,22 @@ def data_prep_2(orig_df: DataFrame, vectorized_df: DataFrame, out_filename: str)
         group_dict[f'V{i+1}'] = ['mean']
     group_dict['tf_idf'] = ['mean']
 
-    X_grouped = X.groupby('id').agg(group_dict)
+    X = X_unnested_embedding.groupby('id', as_index=False).agg(group_dict)
+    X.columns = X.columns.droplevel(1)
+    X_final = pd.merge(
+        X,
+        orig_df,
+        on='id'
+    )
 
-    # X_395082cd2 = X.where(X.id == '395082cd2').dropna()
+    # noinspection PyTypeChecker
+    X_final.to_csv(out_filepath, index=False)
 
-    sys.exit(0)
-    # google_news_vectors_negative_file = os.path.join(custom_input_dir, 'GoogleNews-vectors-negative300.bin')
-    # model = KeyedVectors.load_word2vec_format(google_news_vectors_negative_file, binary=True)
-    # print(model)
+    return TrainData(orig_df, X_final, y)
 
 
-train_data_2 = data_prep_2(train_data_1.df, train_data_1.X, 'train_4_2.csv')
-
-sys.exit(0)
+train_data_2 = data_prep_2(train_data_1.df, 'train_4_2.csv')
+test_data_2 = data_prep_2(test_data_1.df, 'test_4_2.csv')
 
 
 # -------------------------------- Modelling 1 ------------------------------- #
