@@ -172,6 +172,8 @@ train_data_1.df = train_data_1.df.reindex(columns=col_list_main, fill_value=0)
 test_data_1.df = test_data_1.df.reindex(columns=col_list_main, fill_value=0)
 
 
+# ---------------------------- Data Preparation 2 ---------------------------- #
+
 def tokenizer(text: str) -> list:
     english_stopwords = []  # stopwords.words('english')
     return [
@@ -258,22 +260,22 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
 
     X_final_columns = X_final.columns
     # Scaling numeric variables
-    transformers = [
-        [
-            'scaler',
-            StandardScaler(),
-            X_final_columns
-        ],
-    ]
-    ct = ColumnTransformer(
-        transformers,
-        remainder='passthrough'
-    )
-    X_final = ct.fit_transform(X_final)
-    X_final = DataFrame(
-        data=X_final,
-        columns=X_final_columns
-    )
+    # transformers = [
+    #     [
+    #         'scaler',
+    #         StandardScaler(),
+    #         X_final_columns
+    #     ],
+    # ]
+    # ct = ColumnTransformer(
+    #     transformers,
+    #     remainder='passthrough'
+    # )
+    # X_final = ct.fit_transform(X_final)
+    # X_final = DataFrame(
+    #     data=X_final,
+    #     columns=X_final_columns
+    # )
     # noinspection PyTypeChecker
     X_final.to_csv(out_filepath, index=False)
     return TrainData(orig_df, X_final, y)
@@ -300,7 +302,7 @@ def train_model(
         model,
         train_data: TrainData
 ) -> linear_model.LinearRegression:
-    print(f'\n---------- Training {type(model)} ----------')
+    print(f'Model type: {type(model)}')
     X_train, X_test, y_train, y_test = train_test_split(
         train_data.X,
         train_data.y,
@@ -318,13 +320,16 @@ def train_model(
 
 
 # Train and test words vector dataset
+print('\n---------- Training words vector dataset ----------')
 trained_model_1 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
 
 # Train and test google pretrained model
+print('\n--------- Training Google pretrained model --------')
 trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
 trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_2)
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
+print('\n---- Training Google pretrained model (V only) ----')
 trained_model_3_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
 
 
@@ -334,7 +339,7 @@ def evaluate_model(
         model: linear_model.LinearRegression,
         test_data: TrainData
 ) -> DataFrame:
-    print(f'\n---------- Evaluating {type(model)} ----------')
+    print(f'Model type: {type(model)}')
     p_test = model.predict(test_data.X)
     p_df = DataFrame(
         data=test_data.df[['id']].values,
@@ -345,13 +350,19 @@ def evaluate_model(
     return p_df
 
 
+# For now, evaluating is skipped:
 sys.exit(0)
 
 
 # Evaluate models
+print('\n---------- Evaluating words vector model ----------')
 result_df_1 = evaluate_model(trained_model_1, test_data_1)
+
+print('\n------- Evaluating Google pretrained model --------')
 result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
 result_df_2_1 = evaluate_model(trained_model_2_1, test_data_2)
+
+print('\n--- Evaluating Google pretrained model (V only) ---')
 result_df_3_1 = evaluate_model(trained_model_3_1, test_data_3)
 
 
