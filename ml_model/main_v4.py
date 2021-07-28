@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 
 import pandas as pd
 import numpy as np
 
-from gensim.models import Word2Vec
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
-from sklearn import linear_model
+from sklearn import linear_model, ensemble, neural_network
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from tidytext import unnest_tokens, bind_tf_idf
 # noinspection PyProtectedMember
 from siuba import _, count, arrange
 from nltk.tokenize import word_tokenize
+from gensim import models
 
 
 # ------------------------ Useful methods and classes ------------------------ #
@@ -39,6 +38,11 @@ custom_input_dir = os.path.join(input_dir, 'custom')
 output_dir = os.path.join(project_dir, 'ml_model', 'out')
 if not os.path.isdir(output_dir):
     os.makedirs(output_dir)
+
+g_model = models.KeyedVectors.load_word2vec_format(
+    os.path.join(custom_input_dir, 'GoogleNews-vectors-negative300.bin'),
+    binary=True
+)
 
 
 # ---------------------------- Data Preparation 1 ---------------------------- #
@@ -144,13 +148,16 @@ def data_prep_1(df_orig: DataFrame, out_filename_main: str, out_filename_X: str)
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'train.csv')) as train_csv_fp:
     train_csv_df: DataFrame = pd.read_csv(train_csv_fp)
     # Prepare data for Training
-    train_data_1 = data_prep_1(train_csv_df, 'train_4_1_main.csv', 'train_4_1_train.csv')
+
 
 with open(os.path.join(commonlitreadabilityprize_input_dir, 'test.csv')) as test_csv_fp:
     # Prepare data for Testing
     test_csv_df: DataFrame = pd.read_csv(test_csv_fp)
     # Prepare data for Testing
-    test_data_1 = data_prep_1(test_csv_df, 'test_4_1_main.csv', 'test_4_1_test.csv')
+
+
+train_data_1 = data_prep_1(train_csv_df, 'train_4_1_main.csv', 'train_4_1_train.csv')
+test_data_1 = data_prep_1(test_csv_df, 'test_4_1_main.csv', 'test_4_1_test.csv')
 
 # Standardize test and train columns
 
@@ -203,20 +210,20 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
             >> arrange(-_.tf_idf)
     )
 
-    word_2_vec_model = Word2Vec(
-        orig_df['excerpt_tokenized'],
-        min_count=1,
-        vector_size=vector_size,
-        window=5,
-        # hs=1
-    )
+    # word_2_vec_model = Word2Vec(
+    #     orig_df['excerpt_tokenized'],
+    #     min_count=1,
+    #     vector_size=vector_size,
+    #     window=5,
+    #     # hs=1
+    # )
 
     embedding_df = DataFrame(
-        data=word_2_vec_model.wv.index_to_key,
+        data=g_model.index_to_key,
         columns=['word']
     )
     for i in range(0, vector_size):
-        embedding_df[f'V{i + 1}'] = word_2_vec_model.wv.vectors[:, i]
+        embedding_df[f'V{i + 1}'] = g_model.vectors[:, i]
 
     X_unnested_embedding = pd.merge(
         embedding_df,
@@ -236,21 +243,52 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
         orig_df,
         on='id'
     )
+    X_final.drop([
+        'id',
+        'url_legal',
+        'standard_error',
+        'license',
+        'excerpt',
+        'excerpt_tokenized',
+        'excerpt_cleaned',
+        'words_count',
+        'target'
+    ], axis=1, inplace=True)
 
+    X_final_columns = X_final.columns
+    # Scaling numeric variables
+    transformers = [
+        [
+            'scaler',
+            StandardScaler(),
+            X_final_columns
+        ],
+    ]
+    ct = ColumnTransformer(
+        transformers,
+        remainder='passthrough'
+    )
+    X_final = ct.fit_transform(X_final)
+    X_final = DataFrame(
+        data=X_final,
+        columns=X_final_columns
+    )
     # noinspection PyTypeChecker
     X_final.to_csv(out_filepath, index=False)
-
     return TrainData(orig_df, X_final, y)
 
 
 train_data_2 = data_prep_2(train_data_1.df, 'train_4_2.csv')
 test_data_2 = data_prep_2(test_data_1.df, 'test_4_2.csv')
 
+train_data_3 = TrainData(train_data_2.df, train_data_2.X.copy(), train_data_2.y)
+train_data_3.X.drop(['tf_idf', 'words_freq', 'words_freq_count_ratio'], inplace=True, axis=1)
+
 
 # -------------------------------- Modelling 1 ------------------------------- #
 
 def train_model(
-        model: linear_model.LinearRegression,
+        model,
         train_data: TrainData
 ) -> linear_model.LinearRegression:
     print(f'\n---------- Training {type(model)} ----------')
@@ -272,7 +310,28 @@ def train_model(
 
 # Train and Test LinearRegression
 trained_model_1 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
-trained_model_2 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
+trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
+trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_2)
+trained_model_2_2 = train_model(
+    neural_network.MLPRegressor(
+        hidden_layer_sizes=[2],
+        max_iter=10000,
+        tol=-1,
+        verbose=False
+    ),
+    train_data_2
+)
+
+trained_model_3_1 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
+trained_model_3_2 = train_model(
+    neural_network.MLPRegressor(
+        hidden_layer_sizes=[2],
+        max_iter=10000,
+        tol=-1,
+        verbose=False
+    ),
+    train_data_2
+)
 
 
 # -------------------------------- Evaluation -------------------------------- #
@@ -292,9 +351,14 @@ def evaluate_model(
     return p_df
 
 
-# Evaluate LinearRegression model
+# Evaluate models
 result_df_1 = evaluate_model(trained_model_1, test_data_1)
-result_df_2 = evaluate_model(trained_model_2, test_data_2)
+result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
+result_df_2_1 = evaluate_model(trained_model_2_1, test_data_2)
+result_df_2_2 = evaluate_model(trained_model_2_2, test_data_2)
+result_df_3_1 = evaluate_model(trained_model_3_1, test_data_2)
+result_df_3_2 = evaluate_model(trained_model_3_2, test_data_2)
+
 
 # -------------------------------- Deployment -------------------------------- #
 
