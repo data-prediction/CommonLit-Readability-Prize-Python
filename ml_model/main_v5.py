@@ -19,6 +19,7 @@ from tidytext import unnest_tokens, bind_tf_idf
 from siuba import _, count, arrange
 from nltk.tokenize import word_tokenize
 from gensim import models
+from psutil import cpu_count
 
 
 # ------------------------ Useful methods and classes ------------------------ #
@@ -320,12 +321,12 @@ def train_model(
 # Train and test words vector dataset
 print('\n--------------- Training words vector dataset ---------------')
 trained_model_1_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
-trained_model_1_1 = train_model(ensemble.RandomForestRegressor(n_estimators=200, n_jobs=16), train_data_1)
+trained_model_1_1 = train_model(ensemble.RandomForestRegressor(n_estimators=50, n_jobs=cpu_count()), train_data_1)
 
 # Train and test google pretrained model
 print('\n----------- Training with Google pretrained model -----------')
 trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
-trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=2), train_data_2)
+trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=2, n_jobs=cpu_count()), train_data_2)
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
 print('\n------ Training with Google pretrained model (V only) -------')
@@ -358,11 +359,11 @@ print('\n--------------- Evaluating words vector model ---------------')
 result_df_1_0 = evaluate_model(trained_model_1_0, test_data_1)
 result_df_1_1 = evaluate_model(trained_model_1_0, test_data_1)
 
-print('\n------------ Evaluating Google pretrained model -------------')
+print('\n---------- Evaluating with Google pretrained model ----------')
 result_df_2_0 = evaluate_model(trained_model_2_0, test_data_2)
 result_df_2_1 = evaluate_model(trained_model_2_1, test_data_2)
 
-print('\n-------- Evaluating Google pretrained model (V only) --------')
+print('\n----- Evaluating with Google pretrained model (V only) ------')
 result_df_3_1 = evaluate_model(trained_model_3_0, test_data_3)
 
 

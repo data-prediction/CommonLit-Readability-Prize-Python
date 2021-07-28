@@ -11,3 +11,4 @@ wordcloud
 scipy
 tidytext
 siuba
+psutil
