@@ -232,8 +232,8 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
     def vectorize(word: str) -> str or None:
         if g_model.has_index_for(word):
             return g_model.get_vector(word)
-        if g_model.has_index_for(word):
-            return g_model.get_vector(word)
+        if word_2_vec_model.has_index_for(word):
+            return word_2_vec_model.get_vector(word)
         return None
 
     X_unnested['vectors'] = X_unnested['word'].parallel_apply(vectorize)
@@ -266,7 +266,8 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
         'excerpt_tokenized',
         'excerpt_cleaned',
         'words_count',
-        'target'
+        'target',
+        'vectors'
     ], axis=1, inplace=True)
 
     # X_final_columns = X_final.columns
@@ -338,31 +339,19 @@ trained_model_1_1 = train_model(ensemble.RandomForestRegressor(n_estimators=40, 
 # Train and test google pretrained model
 print('\n----------- Training with Google pretrained model -----------')
 trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=cpu_count()), train_data_2)
-trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=300, n_jobs=cpu_count()), train_data_2)
-trained_model_2_2 = train_model(
-    neural_network.MLPRegressor(
-        hidden_layer_sizes=[4],
-        max_iter=10000,
-        tol=-1,
-        verbose=False
-    ),
-    train_data_2
-)
-trained_model_2_3 = train_model(ensemble.BaggingRegressor(n_estimators=20, n_jobs=cpu_count()), train_data_2)
+trained_model_2_1 = train_model(ensemble.RandomForestRegressor(
+    n_estimators=300,
+    n_jobs=cpu_count()
+), train_data_2)
+trained_model_2_2 = train_model(ensemble.BaggingRegressor(n_estimators=20, n_jobs=cpu_count()), train_data_2)
 
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
 print('\n------ Training with Google pretrained model (V only) -------')
-trained_model_3_0 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
-trained_model_3_1 = train_model(
-    neural_network.MLPRegressor(
-        hidden_layer_sizes=[3],
-        max_iter=3000,
-        tol=-1,
-        verbose=False
-    ),
-    train_data_3
-)
+trained_model_3_0 = train_model(ensemble.RandomForestRegressor(
+    n_estimators=300,
+    n_jobs=cpu_count()
+), train_data_3)
 
 
 # -------------------------------- Evaluation -------------------------------- #
