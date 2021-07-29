@@ -8,7 +8,7 @@ import numpy as np
 
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
-from sklearn import linear_model, ensemble
+from sklearn import linear_model, ensemble, neural_network
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
@@ -200,8 +200,6 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
             X_final = pd.read_csv(csv_fp)
             return TrainData(orig_df, X_final, y)
 
-    vector_size = 100
-
     orig_df['excerpt_tokenized'] = orig_df['excerpt'].apply(tokenizer)
     orig_df['excerpt_cleaned'] = orig_df['excerpt'].apply(cleaner)
     X_unnested: DataFrame = (
@@ -224,6 +222,9 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
         data=g_model.index_to_key,
         columns=['word']
     )
+
+    vector_size = len(g_model.vectors[0])
+
     for i in range(0, vector_size):
         embedding_df[f'V{i + 1}'] = g_model.vectors[:, i]
 
@@ -321,19 +322,37 @@ def train_model(
 # Train and test words vector dataset
 print('\n--------------- Training words vector dataset ---------------')
 trained_model_1_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_1)
-trained_model_1_1 = train_model(ensemble.RandomForestRegressor(n_estimators=50, n_jobs=cpu_count()), train_data_1)
+trained_model_1_1 = train_model(ensemble.RandomForestRegressor(n_estimators=40, n_jobs=cpu_count()), train_data_1)
 
 # Train and test google pretrained model
 print('\n----------- Training with Google pretrained model -----------')
-trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=16), train_data_2)
-trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=2, n_jobs=cpu_count()), train_data_2)
+trained_model_2_0 = train_model(linear_model.LinearRegression(n_jobs=cpu_count()), train_data_2)
+trained_model_2_1 = train_model(ensemble.RandomForestRegressor(n_estimators=300, n_jobs=cpu_count()), train_data_2)
+trained_model_2_2 = train_model(
+    neural_network.MLPRegressor(
+        hidden_layer_sizes=[4],
+        max_iter=10000,
+        tol=-1,
+        verbose=False
+    ),
+    train_data_2
+)
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
 print('\n------ Training with Google pretrained model (V only) -------')
 trained_model_3_0 = train_model(ensemble.RandomForestRegressor(n_estimators=15), train_data_3)
+trained_model_3_1 = train_model(
+    neural_network.MLPRegressor(
+        hidden_layer_sizes=[3],
+        max_iter=3000,
+        tol=-1,
+        verbose=False
+    ),
+    train_data_3
+)
 
 
-# For now, evaluating is skipped:
+# For now, evaluation is skipped:
 # sys.exit(0)
 
 
@@ -354,7 +373,6 @@ def evaluate_model(
     return p_df
 
 
-# Evaluate models
 print('\n--------------- Evaluating words vector model ---------------')
 result_df_1_0 = evaluate_model(trained_model_1_0, test_data_1)
 result_df_1_1 = evaluate_model(trained_model_1_0, test_data_1)
