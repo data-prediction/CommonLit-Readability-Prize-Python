@@ -266,8 +266,7 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
         'excerpt_tokenized',
         'excerpt_cleaned',
         'words_count',
-        'target',
-        'vectors'
+        'target'
     ], axis=1, inplace=True)
 
     # X_final_columns = X_final.columns
