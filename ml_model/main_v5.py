@@ -5,6 +5,7 @@ import sys
 
 import pandas as pd
 import numpy as np
+from gensim.models import Word2Vec
 
 from pandas import DataFrame
 from scipy.sparse import csr_matrix
@@ -20,9 +21,12 @@ from siuba import _, count, arrange
 from nltk.tokenize import word_tokenize
 from gensim import models
 from psutil import cpu_count
+from pandarallel import pandarallel
 
 
 # ------------------------ Useful methods and classes ------------------------ #
+
+pandarallel.initialize()
 
 class TrainData:
     def __init__(self, df: DataFrame, X: DataFrame, y: DataFrame = None):
@@ -45,6 +49,13 @@ g_model = models.KeyedVectors.load_word2vec_format(
     os.path.join(custom_input_dir, 'GoogleNews-vectors-negative300.bin'),
     binary=True
 )
+g_vector_size = g_model.vector_size
+g_embedding_df = DataFrame(
+    data=g_model.index_to_key,
+    columns=['word']
+)
+for i in range(0, g_vector_size):
+    g_embedding_df[f'V{i + 1}'] = g_model.vectors[:, i]
 
 
 # ---------------------------- Data Preparation 1 ---------------------------- #
@@ -210,33 +221,33 @@ def data_prep_2(orig_df: DataFrame, out_filename: str) -> TrainData:
             >> arrange(-_.tf_idf)
     )
 
-    # word_2_vec_model = Word2Vec(
-    #     orig_df['excerpt_tokenized'],
-    #     min_count=1,
-    #     vector_size=vector_size,
-    #     window=5,
-    #     # hs=1
-    # )
+    word_2_vec_model = Word2Vec(
+        orig_df['excerpt_tokenized'],
+        min_count=1,
+        vector_size=g_vector_size,
+        window=5,
+        # hs=1
+    ).wv
 
-    embedding_df = DataFrame(
-        data=g_model.index_to_key,
-        columns=['word']
-    )
+    def vectorize(word: str) -> str or None:
+        if g_model.has_index_for(word):
+            return g_model.get_vector(word)
+        if g_model.has_index_for(word):
+            return g_model.get_vector(word)
+        return None
 
-    vector_size = len(g_model.vectors[0])
-
-    for i in range(0, vector_size):
-        embedding_df[f'V{i + 1}'] = g_model.vectors[:, i]
-
-    X_unnested_embedding = pd.merge(
-        embedding_df,
-        X_unnested,
-        on='word'
+    X_unnested['vectors'] = X_unnested['word'].parallel_apply(vectorize)
+    vector_cols = [f'V{v_index+1}' for v_index in range(0, g_vector_size)]
+    X_unnested_embedding = X_unnested.copy()
+    X_unnested_embedding.dropna(inplace=True)
+    X_unnested_embedding[vector_cols] = pd.DataFrame(
+        X_unnested_embedding.vectors.tolist(),
+        index=X_unnested_embedding.index
     )
 
     group_dict = dict()
-    for i in range(0, vector_size):
-        group_dict[f'V{i+1}'] = ['mean']
+    for v_index in range(0, g_vector_size):
+        group_dict[f'V{v_index+1}'] = ['mean']
     group_dict['tf_idf'] = ['mean']
 
     X = X_unnested_embedding.groupby('id', as_index=False).agg(group_dict)
@@ -307,7 +318,7 @@ def train_model(
         train_data.X,
         train_data.y,
         random_state=0,
-        test_size=.10
+        # test_size=.40
     )
     model.fit(X_train, y_train)
     p_train = model.predict(X_train)
@@ -337,6 +348,8 @@ trained_model_2_2 = train_model(
     ),
     train_data_2
 )
+trained_model_2_3 = train_model(ensemble.BaggingRegressor(n_estimators=20, n_jobs=cpu_count()), train_data_2)
+
 
 # Train and test google pretrained model without 'tf_idf', 'words_freq', 'words_freq_count_ratio'
 print('\n------ Training with Google pretrained model (V only) -------')
@@ -350,10 +363,6 @@ trained_model_3_1 = train_model(
     ),
     train_data_3
 )
-
-
-# For now, evaluation is skipped:
-# sys.exit(0)
 
 
 # -------------------------------- Evaluation -------------------------------- #
